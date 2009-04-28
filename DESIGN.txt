@@ -1,0 +1,65 @@
+GitHug, the Hg-Git Plugin
+=========================
+
+This plugin is designed to allow you to push to a Git server over the Git 
+protocol and to pull from a Git based project.  All data is stored in Hg
+native format with a mapping table.  People collaborating in Git should not 
+even be able to tell that you're using Hg to collaborate on their project. 
+Nothing should be kept in the Git format except perhaps for caching.
+
+(Dulwich library)
+
+= Lossless Two Way = 
+We need to store data that Git records that Merc does not in a git/extra_data file.  This would be parents over two and committer information (author will be mapped to Hg committer).  This way two Hg developers can collaborate without the Git transport messing up the local commits.
+Each Git commit should be reproducable as a Merc ID and vice versa on any system.
+
+= ISSUES =
+
+* currently sorts by date, though it should be sorting topologically.  if it gets to a commit where we haven't processed it's parents, it will probably fuck up.
+
+May need to use bookmarks extension to do everything better.
+
+* Cloning from a Git Repository *
+
+hg init, hg add remote, hg gfetch, hg checkout
+
+* Fetching from a Git Repository *
+
+hg gremote add (git-url)
+
+hg gfetch origin (like a hg pull)
+ - connects to server (upload-pack)
+ - gets a list of server shas
+ - sees what it does not have (maps all unmapped shas, checks list)
+ - requests needed shas
+ - fetches packfile
+    - explodes
+    - converts parent linages to hg changesets
+    - updates local parents
+
+* Pushing to a Git Repository *
+
+hg gpush origin
+  - maps all unmapped shas
+  - connects to server
+  - needs/haves
+  - creates packfile of git versions of everything the server needs
+  - transfers it, updates local references (bookmarks?)
+
+
+* Tests *
+Tests are implemented in the Mercurial-standard way of small shell scripts.
+The scripts are located in the tests directory, and to run them you should
+change to that directory and then run tests/run-tests.py from the Mercurial
+sources. For example, if you have a copy of the Mercurial source code at
+/Stuff/hg-crew, you would do something like this:
+
+cd tests ; /Stuff/hg-crew/tests/run-tests.py
+
+And you should see output like this:
+.
+# Ran 1 tests, 0 skipped, 0 failed.
+
+Note that due to limitations of Dulwich at the moment, the tests need to
+start a git-daemon process. Right now, they use the default port, so will
+skip if they detect an already-running git-daemon.
