@@ -135,3 +135,26 @@ def checksafessh(host):
     if host.startswith(b'-'):
         raise error.Abort(_(b"potentially unsafe hostname: '%s'") %
                           (host,))
+
+
+class FileNameEncodingConversion:
+    git_filename_encoding = 'utf-8'
+
+    def __init__(self, hg_filename_encoding):
+        self.hg_filename_encoding = hg_filename_encoding
+
+    def hg_to_git(self, hg_filename):
+        if self.hg_filename_encoding:
+            try:
+                return hg_filename.decode(self.hg_filename_encoding).encode(self.git_filename_encoding)
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                assert False, "failed to convert hg file name to git file name: % -> %s" % (self.hg_filename_encoding, self.git_filename_encoding)
+        return hg_filename
+
+    def git_to_hg(self, git_filename):
+        if self.hg_filename_encoding:
+            try:
+                return git_filename.decode(self.git_filename_encoding).encode(self.hg_filename_encoding)
+            except (UnicodeEncodeError):
+                assert False, "failed to convert git file name to hg file name: % -> %s" % (self.git_filename_encoding, self.hg_filename_encoding)
+        return git_filename

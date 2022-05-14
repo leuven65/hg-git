@@ -147,6 +147,11 @@ class GitHandler(object):
         self.branch_bookmark_suffix = compat.config(
             ui, b'string', b'git', b'branch_bookmark_suffix')
 
+        hg_filename_encoding = compat.config(self.ui, b'string', b'hggit',
+                                             b'hg_filename_encoding')
+        self.ui.note(_(b"hg filename encoding is set to '%s'\n" % hg_filename_encoding))
+        self.filename_convert = util.FileNameEncodingConversion(hg_filename_encoding)
+
         self._map_git_real = None
         self._map_hg_real = None
         self.load_tags()
@@ -554,7 +559,7 @@ class GitHandler(object):
                                     b'repo: %s' % gitsha))
 
         exporter = hg2git.IncrementalChangesetExporter(
-            self.repo, pctx, self.git.object_store, gitcommit)
+            self.repo, pctx, self.git.object_store, gitcommit, self.filename_convert)
 
         mapsavefreq = compat.config(self.ui, b'int', b'hggit',
                                     b'mapsavefrequency')
@@ -1629,6 +1634,13 @@ class GitHandler(object):
         for change in changes:
             oldfile, oldmode, oldsha = change.old
             newfile, newmode, newsha = change.new
+
+            # do encoding conversion filename from git to hg
+            if oldfile:
+                oldfile = self.filename_convert.git_to_hg(oldfile)
+            if newfile:
+                newfile = self.filename_convert.git_to_hg(newfile)
+
             # actions are described by the following table ('no' means 'does
             # not exist'):
             #    old        new     |    action

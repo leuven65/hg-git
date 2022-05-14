@@ -232,6 +232,7 @@ CONFIG_DEFAULTS = {
     b'hggit': {
         b'mapsavefrequency': 0,
         b'usephases': False,
+        b'hg_filename_encoding': None,
     }
 }
 

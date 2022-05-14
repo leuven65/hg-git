@@ -117,7 +117,7 @@ class IncrementalChangesetExporter(object):
     more efficient.
     """
 
-    def __init__(self, hg_repo, start_ctx, git_store, git_commit):
+    def __init__(self, hg_repo, start_ctx, git_store, git_commit, filename_convert):
         """Create an instance against a mercurial.localrepo.
 
         start_ctx: the context for a Mercurial commit that has a Git
@@ -128,6 +128,7 @@ class IncrementalChangesetExporter(object):
         start_ctx can be repo[nullid], in which case git_commit should be None.
         """
         self._hg = hg_repo
+        self.filename_convert = filename_convert
 
         # Our current revision's context.
         self._ctx = start_ctx
@@ -152,10 +153,11 @@ class IncrementalChangesetExporter(object):
             self._dirs[path] = tree
             for entry in compat.iteritems(tree):
                 if entry.mode == dirkind:
+                    dir_name = self.filename_convert.hg_to_git(entry.path)
                     if path == b'':
-                        newpath = entry.path
+                        newpath = dir_name
                     else:
-                        newpath = path + b'/' + entry.path
+                        newpath = path + b'/' + dir_name
                     todo.append((newpath, store[entry.sha]))
 
     @property
@@ -250,7 +252,7 @@ class IncrementalChangesetExporter(object):
             fctx = newctx[path]
 
             func = IncrementalChangesetExporter.tree_entry
-            entry, blob = func(fctx, self._blob_cache)
+            entry, blob = func(fctx, self._blob_cache, self.filename_convert)
             if blob is not None:
                 yield (blob, fctx.filenode())
 
@@ -273,7 +275,8 @@ class IncrementalChangesetExporter(object):
         d = os.path.dirname(path)
         tree = self._dirs.get(d, dulobjs.Tree())
 
-        del tree[os.path.basename(path)]
+        filename = self.filename_convert.hg_to_git(os.path.basename(path))
+        del tree[filename]
         dirty_trees.add(d)
 
         # If removing this file made the tree empty, we should delete this
@@ -309,7 +312,8 @@ class IncrementalChangesetExporter(object):
                 return
 
             try:
-                del tree[basename]
+                basename_git = self.filename_convert.hg_to_git(basename)
+                del tree[basename_git]
             except KeyError:
                 return
 
@@ -376,7 +380,8 @@ class IncrementalChangesetExporter(object):
             # and incurs SHA-1 recalculation. So, it's in our interest to avoid
             # invalidating trees. Since we only update the entries of dirty
             # trees, this should hold true.
-            parent_tree[os.path.basename(d)] = (stat.S_IFDIR, tree.id)
+            dir_name = self.filename_convert.hg_to_git(os.path.basename(d))
+            parent_tree[dir_name] = (stat.S_IFDIR, tree.id)
 
     def _handle_subrepos(self, newctx):
         sub, substate = parse_subrepos(self._ctx)
@@ -423,7 +428,7 @@ class IncrementalChangesetExporter(object):
         return added, removed
 
     @staticmethod
-    def tree_entry(fctx, blob_cache):
+    def tree_entry(fctx, blob_cache, filename_convert):
         """Compute a dulwich TreeEntry from a filectx.
 
         A side effect is the TreeEntry is stored in the passed cache.
@@ -447,5 +452,6 @@ class IncrementalChangesetExporter(object):
         else:
             mode = 0o100644
 
-        return (dulobjs.TreeEntry(os.path.basename(fctx.path()), mode,
+        filename = filename_convert.hg_to_git(os.path.basename(fctx.path()))
+        return (dulobjs.TreeEntry(filename, mode,
                                   blob_id), blob)
