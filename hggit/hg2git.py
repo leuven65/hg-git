@@ -153,7 +153,7 @@ class IncrementalChangesetExporter(object):
             self._dirs[path] = tree
             for entry in compat.iteritems(tree):
                 if entry.mode == dirkind:
-                    dir_name = self.filename_convert.hg_to_git(entry.path)
+                    dir_name = self.filename_convert.git_to_hg(entry.path)
                     if path == b'':
                         newpath = dir_name
                     else:
@@ -235,7 +235,8 @@ class IncrementalChangesetExporter(object):
             d = os.path.dirname(path)
             tree = self._dirs.setdefault(d, dulobjs.Tree())
             dirty_trees.add(d)
-            tree.add(os.path.basename(path), dulobjs.S_IFGITLINK, sha)
+            filename_git = self.filename_convert.hg_to_git(os.path.basename(path))
+            tree.add(filename_git, dulobjs.S_IFGITLINK, sha)
 
         # For every file that changed or was added, we need to calculate the
         # corresponding Git blob and its tree entry. We emit the blob
@@ -275,8 +276,8 @@ class IncrementalChangesetExporter(object):
         d = os.path.dirname(path)
         tree = self._dirs.get(d, dulobjs.Tree())
 
-        filename = self.filename_convert.hg_to_git(os.path.basename(path))
-        del tree[filename]
+        filename_git = self.filename_convert.hg_to_git(os.path.basename(path))
+        del tree[filename_git]
         dirty_trees.add(d)
 
         # If removing this file made the tree empty, we should delete this
@@ -380,8 +381,8 @@ class IncrementalChangesetExporter(object):
             # and incurs SHA-1 recalculation. So, it's in our interest to avoid
             # invalidating trees. Since we only update the entries of dirty
             # trees, this should hold true.
-            dir_name = self.filename_convert.hg_to_git(os.path.basename(d))
-            parent_tree[dir_name] = (stat.S_IFDIR, tree.id)
+            dir_name_git = self.filename_convert.hg_to_git(os.path.basename(d))
+            parent_tree[dir_name_git] = (stat.S_IFDIR, tree.id)
 
     def _handle_subrepos(self, newctx):
         sub, substate = parse_subrepos(self._ctx)
@@ -452,6 +453,6 @@ class IncrementalChangesetExporter(object):
         else:
             mode = 0o100644
 
-        filename = filename_convert.hg_to_git(os.path.basename(fctx.path()))
-        return (dulobjs.TreeEntry(filename, mode,
+        filename_git = filename_convert.hg_to_git(os.path.basename(fctx.path()))
+        return (dulobjs.TreeEntry(filename_git, mode,
                                   blob_id), blob)
