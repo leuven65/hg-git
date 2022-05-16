@@ -4,6 +4,7 @@ functions."""
 from __future__ import absolute_import, print_function
 
 import re
+import abc
 
 try:
     from collections import OrderedDict
@@ -137,24 +138,41 @@ def checksafessh(host):
                           (host,))
 
 
-class FileNameEncodingConversion:
-    git_filename_encoding = 'utf-8'
+class IFileNameEncodingConversion (object):
+    __metaclass__ = abc.ABCMeta
 
-    def __init__(self, hg_filename_encoding):
-        self.hg_filename_encoding = hg_filename_encoding
-
+    @abc.abstractmethod
     def hg_to_git(self, hg_filename):
-        if self.hg_filename_encoding:
-            try:
-                return hg_filename.decode(self.hg_filename_encoding).encode(self.git_filename_encoding)
-            except (UnicodeDecodeError, UnicodeEncodeError):
-                assert False, "failed to convert file name from hg to git: % -> %s" % (self.hg_filename_encoding, self.git_filename_encoding)
+        pass
+
+    @abc.abstractmethod
+    def git_to_hg(self, git_filename):
+        pass
+
+class FileNameEncodingWithNoConversion (IFileNameEncodingConversion):
+    def hg_to_git(self, hg_filename):
         return hg_filename
 
     def git_to_hg(self, git_filename):
-        if self.hg_filename_encoding:
-            try:
-                return git_filename.decode(self.git_filename_encoding).encode(self.hg_filename_encoding)
-            except (UnicodeEncodeError):
-                assert False, "failed to convert file name from git to hg: % -> %s" % (self.git_filename_encoding, self.hg_filename_encoding)
         return git_filename
+
+class FileNameEncodingConversion (IFileNameEncodingConversion):
+    git_filename_encoding = 'utf-8'
+
+    def __init__(self, hg_filename_encoding):
+        assert self.hg_filename_encoding
+        self.hg_filename_encoding = hg_filename_encoding
+
+    def hg_to_git(self, hg_filename):
+        try:
+            return hg_filename.decode(self.hg_filename_encoding).encode(self.git_filename_encoding)
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            assert False, "failed to convert file name from hg to git: % -> %s" % (self.hg_filename_encoding, self.git_filename_encoding)
+            return hg_filename
+
+    def git_to_hg(self, git_filename):
+        try:
+            return git_filename.decode(self.git_filename_encoding).encode(self.hg_filename_encoding)
+        except (UnicodeEncodeError):
+            assert False, "failed to convert file name from git to hg: % -> %s" % (self.git_filename_encoding, self.hg_filename_encoding)
+            return git_filename

@@ -150,7 +150,9 @@ class GitHandler(object):
         hg_filename_encoding = compat.config(self.ui, b'string', b'hggit',
                                              b'hg_filename_encoding')
         self.ui.note(_(b"hg filename encoding is set to '%s'\n" % hg_filename_encoding))
-        self.filename_convert = util.FileNameEncodingConversion(hg_filename_encoding)
+        self.filename_convert = (util.FileNameEncodingConversion(hg_filename_encoding)
+                                 if hg_filename_encoding
+                                 else util.FileNameEncodingWithNoConversion())
 
         self._map_git_real = None
         self._map_hg_real = None
